@@ -1,0 +1,1953 @@
+<!DOCTYPE html>
+<!-- @author: Dorotea Dudas	@date 20/02/18 -->
+<html lang="en">
+	<head>
+		<title>Habitable Zones</title>
+		<meta charset="utf-8"><meta name="author" content="Dorotea Dudas"><meta name="date" content="20-02-2018"> <!--scheme="DD-MM-YYYY"-->
+		<style>
+			* {cursor: auto;}
+			body {
+				font-family: "HelveticaNeueLT Com 55 Roman", "Helvetica Neue LT Com", sans-serif;/*HelveticaN, sans-serif;*//*"Helvetica Neue LT Com", sans-serif;*//*"HelveticaNeueLT Com 45 Lt", "Helvetica Neue LT Com", sans-serif;*/
+				margin: 0px;
+				background-color: #000000;
+				overflow: hidden;
+				visibility:hidden; 
+				touch-action: none;
+			}
+			#divText {
+				position	: absolute;
+				bottom		: 130px;
+				left		: 10px;
+				z-index		: 2;
+				font-size	: 150%;
+				width		: 620px;
+				color		: #BDBDBD;
+				background	: rgba(128,128,128,0.3);
+				padding		: 5px;
+				padding-top	: 5px;
+				padding-bottom	: 5px;
+				border-radius	: 10px;
+				border-color	: black;
+				border-style	: solid;
+				border-width	: 2px;	
+			}			
+			#divTemperature {
+				position	: absolute;
+				top		: 30px;
+				left		: 60px;
+				z-index		: 2;
+				font-size	: 150%;
+				width		: 160px;
+				color		: #BDBDBD;
+				background	: rgba(128,128,128,0.0);
+				padding		: 5px;
+				padding-top	: 5px;
+				padding-bottom	: 5px;
+				border-radius	: 0px;
+				border-color	: black;
+				border-style	: solid;
+				border-width	: 0px;	
+				text-align	: center;
+			}					
+			
+			/*dialog*/
+			.dlg-no-title .ui-dialog-titlebar {/*(.dlg-no-title dialog class; .ui-dialog-titlebar not used)*/
+				display: none;
+			}			
+			.ui-widget-content.ui-dialog {
+				background: rgba(128,128,128,0.0) !important;
+				border: 2px solid rgba(128,128,128,0.0);
+				/*place the dialog on the top of all buttons*/
+				position	: relative;
+				z-index		: 10;				
+ 			} 
+			#dialogHelp {
+				position	: relative;
+				z-index		: 2;
+				font-size	: 150%;
+				color		: #BDBDBD;
+				background	: rgba(128,128,128,0.6);
+			} 
+			/*vertical alignment of the image within a div*/
+			.helper {
+				display: inline-block;
+				height: 100%;
+				vertical-align: middle;
+			}
+			
+			/* zoom */
+			#starButtonBlue, #starButtonYellow, #starButtonRed {/*GUI scale*/
+				transform: scale(0.88);
+			}
+			/* make sure that the elements end up in the correct corrners*/
+			#starButtonBlue {
+				transform-origin: 100% 100% ;
+			}			
+			#starButtonYellow {
+				transform-origin: 100% 180% ;
+			}
+			#starButtonRed {
+				transform-origin: 100% 280% ;
+			}			
+			#resetButton, #languageButton, #infoButton {/*GUI scale*/
+				transform: scale(1.0);
+			}
+			/* make sure that the elements end up in the correct corrners*/
+			#resetButton {
+				transform-origin: 0% 100%;
+			}			
+			#languageButton {
+				transform-origin: 0% 100% ;
+			}
+			#infoButton {
+				transform-origin: 0% 100% ;
+			}
+		</style>
+	</head>
+	<body>
+<!--	<div id="divText">
+			Move the Planet on a plane and let it orbit around the Star.<br>
+			Grab the Planet or the Arrow to set the momentum.<br>
+			Try setting the momentum without using the Arrow.<br>
+			Don't go to close to the Star.<br> 
+			<br>
+			Why does the momentum vector changes direction?<br>
+			When does the momentum vector decrease, increase?<br>
+			How does the Planet's climate changes?<br>
+			How do the habitable zones look on other star types?<br>
+			How does the orbit change with other star types?<br>
+	</div>		-->
+	<div id="divTemperature"></div><!-- the temperature -->
+	<div id="dialogHelp" title="Dialog" align="center" ></div>
+	<div id="container"></div>
+	
+	<div id="resetButton"></div>
+	<div id="languageButton"></div>
+	<div id="infoButton"></div>
+	
+	<div id="starButtonBlue"></div>
+	<div id="starButtonYellow"></div>
+	<div id="starButtonRed"></div>
+	
+	
+		<script src="scripts/three69.js"></script>
+		<script src="scripts/OrbitControls.js"></script>	
+		<script type="text/javascript" src="scripts/ShaderParticles.js"></script>		
+		<script src="scripts/jquery-1.9.1.js"></script>
+		<script src="scripts/jquery-ui.js"></script>
+		<script src="scripts/jquery.ui.dialog-clickoutside.js"></script>
+		<script src="Nbody.js"></script>
+		
+		
+		<script id="fragmentShaderStar" type="x-shader/x-fragment">
+			uniform sampler2D texture1;
+			uniform sampler2D texture2;
+			uniform float time;
+			varying vec3 vNormal;
+			varying vec2 vUv;
+			varying float noise;
+			
+			float random( vec3 scale, float seed ){
+				return fract( sin( dot( gl_FragCoord.xyz + seed, scale ) ) * 43758.5453 + seed ) ;
+			}
+			void main() {
+				float r = .01 * random( vec3( 12.9898, 78.233, 151.7182 ), 0.0 );// get a random offset
+				// lookup vertically in the texture, using noise and offset to get the right RGB colour
+				vec2 tPos = vec2( 0, 1.9 * noise + r );
+				vec4 color = texture2D( texture2, tPos );
+				gl_FragColor = vec4( color.rgb, 1.0 );
+				
+				//lava
+				vec2 position = -1.0 + 2.0 * vUv;
+				vec4 noise2 = texture2D( texture1, vUv );
+				vec2 T1 = vUv + vec2( 1.5, -1.5 ) * time * 0.02;
+				vec2 T2 = vUv + vec2( -0.5, 2.0 ) * time * 0.01;
+				T1.x += noise2.x * 2.0;
+				T1.y += noise2.y * 2.0;
+				T2.x -= noise2.y * 0.2;
+				T2.y += noise2.z * 0.2;
+				float p = texture2D( texture1, T1 * 2.0 ).a;//t1
+				color = texture2D( texture2, T1 * 1.0 );//vec4 //t2 2.0
+				vec4 temp = color * ( vec4( p, p, p, p ) * 2.0 ) + ( color * color - 0.1 );
+				if( temp.r > 1.0 ){ temp.bg += clamp( temp.r - 2.0, 0.0, 100.0 ); }
+				if( temp.g > 1.0 ){ temp.rb += temp.g - 1.0; }
+				if( temp.b > 1.0 ){ temp.rg += temp.b - 1.0; }
+				gl_FragColor = mix( gl_FragColor, vec4(color.rgb, gl_FragColor.w ), 0.95 );//good, but a bit weird
+			}
+		</script>
+		<script id="vertexShaderStar" type="x-shader/x-vertex">
+			varying vec3 vNormal;
+			varying float noise;
+			varying vec2 vUv;
+ 			void main() {
+				vUv = uv;
+				vNormal = normalize( normalMatrix * normal );//just for glow
+				gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+			}
+ 		</script>
+		<script id="fragmentShaderHabitable" type="x-shader/x-fragment">
+			varying vec2 vUv;
+			varying float noise;
+			uniform sampler2D texture1;
+			uniform sampler2D texture2;
+			uniform sampler2D texture3;
+			uniform sampler2D texture4;
+			uniform sampler2D texture5;
+			//lava
+			uniform float time;
+			
+			varying vec3 vNormal;
+			
+			uniform float distanceToStar;//100 to 380 -> 280 
+			//(d - 100)/280
+			uniform float sh_ring_one;// = 100;
+			uniform float sh_ring_two;// = 200;
+			uniform float sh_ring_three;// = 300;
+			uniform float sh_ring_end;// = 380;
+			uniform float sh_size_Star;// = 50;
+			uniform float sh_size_Planet;// = 20;					
+			
+			vec3 light = vec3(1.0, 0.0, 0.0);//for the simple light
+			varying vec3 vLightVector;
+			
+			float random( vec3 scale, float seed ){
+				return fract( sin( dot( gl_FragCoord.xyz + seed, scale ) ) * 43758.5453 + seed ) ;
+			}
+			void main() {
+				// get a random offset
+				float r = .01 * random( vec3( 12.9898, 78.233, 151.7182 ), 0.0 );
+				// lookup vertically in the texture, using noise and offset
+				// to get the right RGB colour
+				vec2 tPos = vec2( 0, 1.9 * noise + r );
+				vec4 color = texture2D( texture2, tPos );
+				gl_FragColor = vec4( color.rgb, 1.0 );
+				
+				//lava
+				vec2 position = -1.0 + 2.0 * vUv;
+				vec4 noise = texture2D( texture1, vUv );
+				vec2 T1 = vUv + vec2( 1.5, -1.5 ) * time * 0.02;
+				vec2 T2 = vUv + vec2( -0.5, 2.0 ) * time * 0.01;
+				T1.x += noise.x * 2.0;
+				T1.y += noise.y * 2.0;
+				T2.x -= noise.y * 0.2;
+				T2.y += noise.z * 0.2;
+				float p = texture2D( texture1, T1 * 2.0 ).a;//t1
+				color = texture2D( texture2, T1 * 1.0 );//vec4 //t2 2.0
+			
+				
+				//light
+				// Intensity calculated as dot of normal and vertex-light vector
+				float intensity = max(0.10, dot(vNormal, vLightVector));
+				vec4 lighting = vec4(intensity * 2., intensity * 2., intensity * 2., 1.0);
+				
+				
+				//blending
+				vec4 temp_real_fire = mix( gl_FragColor, vec4(color.rgb, gl_FragColor.w ), 0.95 );//lava
+				vec4 temp_fire = texture2D( texture3, vUv );//just no water
+				vec4 temp_earth = texture2D( texture4, vUv );//normal
+				vec4 temp_ice = texture2D( texture5, vUv );//snow
+				gl_FragColor = temp_earth;
+				
+				if(distanceToStar<=sh_ring_one)//100 -> 0  to 50 -> 1  (or 50 - 20 -> 1)      (100 - d)/(100 - 50 - 10)
+						gl_FragColor = mix( temp_fire, temp_real_fire, (sh_ring_one - distanceToStar)/(sh_ring_one - sh_size_Star - 0.5*sh_size_Planet/0.6)) * lighting;
+				if(distanceToStar>sh_ring_one && distanceToStar<=sh_ring_two) //200 -> 0  to 100 -> 1 
+						gl_FragColor = mix( temp_earth, temp_fire, (sh_ring_two - distanceToStar)/(sh_ring_two - sh_ring_one)) * lighting;
+				if(distanceToStar>sh_ring_two && distanceToStar<=sh_ring_three)
+						gl_FragColor = temp_earth * lighting;
+				if(distanceToStar>sh_ring_three && distanceToStar<=sh_ring_end) //300 -> 0  to 380 -> 1 
+						gl_FragColor = mix( temp_earth, temp_ice,  (distanceToStar - sh_ring_three)/(sh_ring_end - sh_ring_three)) * lighting;
+				if(distanceToStar>sh_ring_end)
+						gl_FragColor = temp_ice * lighting;	
+			}
+		</script>
+		<script id="vertexShaderHabitable" type="x-shader/x-vertex">
+  			vec3 lightPosition = vec3(0.0,0.0,0.0); 
+  			varying vec3 vLightVector;//shared with fragment shader
+			varying vec2 vUv;
+			varying float noise;
+			varying vec3 vNormal;
+			
+ 			void main(){
+				  vUv = uv;
+				  gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+				  vNormal = normalize( normalMatrix * normal );
+				  
+				  // Calculate the Vertex-to-Light Vector 
+				  vec4 lightVector = viewMatrix * vec4(lightPosition, 1.0);
+				  vec4 modelViewPosition = modelViewMatrix * vec4(position, 1.0);
+				  vLightVector = normalize(lightVector.xyz - modelViewPosition.xyz);	  
+  			}
+ 		</script>
+ 
+		<script>//functions
+			function getWindowDimensions(){
+				{//Width, Height
+				var w = window,
+					d = document,
+					e = d.documentElement,
+					g = d.getElementsByTagName('body')[0],
+					x = w.innerWidth || e.clientWidth || g.clientWidth,
+					y = w.innerHeight|| e.clientHeight|| g.clientHeight;
+				}	
+				return {
+					width:  x,
+					height: y
+				}
+			}			
+			function InitThreeRenderer(Width, Height, divElement) {//has controls
+				renderer = new THREE.WebGLRenderer({antialias	: true,  alpha: true});
+				renderer.setSize( Width, Height );
+				renderer.setClearColor( 0x000000, 0 );
+				divElement.appendChild( renderer.domElement );
+					
+				//shadows
+				renderer.shadowMapEnabled = true;
+				renderer.shadowMapType = THREE.PCFSoftShadowMap;
+				renderer.autoClear = false;//this allows rendering of two scenes together, but destroys the screen edges
+				
+				camera = new THREE.PerspectiveCamera( 25, customWidth/customHeight, 1, 18000 );
+				camera.position.y = 1400;
+				controls = new THREE.OrbitControls( camera, renderer.domElement );
+// 				controls = new THREE.TrackballControls( camera, renderer.domElement );
+				return{
+					renderer: renderer, 
+					camera: camera,
+					controls: controls
+				}
+			}					
+			function InitThreeScene() {
+				scene = new THREE.Scene();	
+				scene2 = new THREE.Scene();	
+			}		
+			function InitThreeLights(){
+				var light0 = new THREE.AmbientLight( 0x404040 ); //  soft white light
+				scene.add(light0);
+
+				var light2 = new THREE.PointLight( 0xffe8d9, 2, 0 );
+				light2.add( new THREE.Mesh( center, new THREE.MeshBasicMaterial( { color: 0xff0040 } ) ) );
+				scene.add( light2 );
+				scene2.add( light2 );
+				
+				var spotLight = new THREE.SpotLight( 0xffffff ); 
+				spotLight.position.set( 0, 0, 0 );
+				spotLight.target.position.set(150, 0, 0);
+				spotLight.castShadow = true; 
+				spotLight.shadowMapWidth = 1024; 
+				spotLight.shadowMapHeight = 1024; 
+				spotLight.shadowCameraNear = 15; 
+				spotLight.shadowCameraFar = 240; 
+				spotLight.shadowCameraFov = 40; 
+				spotLight.shadowDarkness	= 0.9;
+	// 			spotLight.shadowCameraVisible	= true;
+				scene.add( spotLight );
+				scene2.add( spotLight );	
+			}
+			function InitCameras(){//has controls
+				for (var ii =  views.length-1; ii >= 0; ii-- ) {
+					var view = views[ii];
+					camera = new THREE.PerspectiveCamera( view.fov, window.innerWidth / window.innerHeight, 1, 10000 );
+					camera.position.x = view.eye[ 0 ];
+					camera.position.y = view.eye[ 1 ];
+					camera.position.z = view.eye[ 2 ];
+					camera.up.x = view.up[ 0 ];
+					camera.up.y = view.up[ 1 ];
+					camera.up.z = view.up[ 2 ];
+					view.camera = camera;
+					camera.lookAt(new THREE.Vector3(0.0,0.0,0.0));
+				
+					//so I can't control all viewports, if using OrbitControls
+					//one viewport (the last one, hence the reversed loop) if using TrackballControls
+					//(the big canvas needs to be drawn first, otherwise it covers the small ones)
+					controls = new THREE.OrbitControls( camera, renderer.domElement );
+// 					controls = new THREE.TrackballControls( camera, renderer.domElement );//gets stuck with dat.gui if no renderer.domElement
+					controls.noZoom = false;
+					controls.noPan = true;
+					controls.minDistance = 500;
+					controls.maxDistance = 1800;
+				}
+			}
+			
+			//objects
+			function InitEnviromentSphere(){//outside of InitObjects
+				var starfield_geo = new THREE.SphereGeometry(space_size, 32, 32);//space_size, 32, 32, Math.PI/2.);//texture starting at PI/2		//space_size, 32, 32, 0, 2*Math.PI, 0, Math.PI);
+				var starfield  = new THREE.Mesh(starfield_geo, starfield_material);
+				starfield.rotation.y = 90*Math.PI/180;//texture starting at PI/2 or y rotated PI/2
+				starfield.rotation.x = 61*Math.PI/180;
+				scene.add(starfield);
+			}
+			function InitGrid(){
+				TextureGrid.wrapS = TextureGrid.wrapT = THREE.RepeatWrapping;
+				TextureGrid.repeat.set(grid_repeat,grid_repeat);//28,28   12, 12
+				TextureGrid.offset.set( 0, 0);
+				var Material = new THREE.MeshBasicMaterial( { map: TextureGrid, side: THREE.DoubleSide, transparent: true, opacity: 0.3, depthWrite: false, depthTest: true } );//, alphaTest: 0.5
+				var Geometry = new THREE.PlaneGeometry( 2000, 2000, 1, 1 );
+// 				var Geometry = new THREE.PlaneBufferGeometry( 2000, 2000, 1, 1 );
+
+				grid_plane = new THREE.Mesh( Geometry, Material );
+				grid_plane.position.y = 0;
+				grid_plane.rotation.x =  Math.PI / 2;
+// 				grid_plane.scale.set(0.1,0.1,0.1);
+				scene2.add( grid_plane );
+			}
+			function InitNBody(){//center, satellite, invisible_planet_sphere
+				//star
+				geometry_center = new THREE.SphereGeometry( size_Star, 32, 32 );
+				geometry_center.dynamic = true;
+				center = new THREE.Mesh( geometry_center, materialSH );
+				center.mass = 29999999999999999999999;
+				scene.add(center);
+		
+				//planet
+				geometry_satellite = new THREE.SphereGeometry( size_Planet, 32, 32 );
+				satellite = new THREE.Mesh( geometry_satellite, materialHabitable );
+				satellite.name = "planet";
+				scene2.add(satellite);
+				
+				//planet position (circular orbit)
+				satellite.position.x = init_position_x;
+				satellite.momentum = new THREE.Vector3(0,0,2.63185);	 //21 degrees	
+					
+				//planet's distance to star
+				var dist = Math.sqrt(satellite.position.x*satellite.position.x+satellite.position.y*satellite.position.y+satellite.position.z*satellite.position.z);
+				uniforms2.distanceToStar.value = dist;//need to init
+
+				//sphere arount the planet (bigger for grabbing)
+// 				if(USE_PLANET_SPHERE){//need it always
+				var planetSphereMaterial;
+				if(USE_PLANET_SPHERE) planetSphereMaterial = new THREE.MeshBasicMaterial( {wireframe:false,  color: 0x3399ff, transparent:true, opacity:0.15, depthTest: false });//opacity:0.5
+				if(!USE_PLANET_SPHERE) planetSphereMaterial = new THREE.MeshBasicMaterial( {wireframe:false,  color: 0x3399ff, transparent:true, opacity:0.0, depthTest: false });
+				invisible_planet_sphere = new THREE.Mesh( new THREE.SphereGeometry( size_Planet + size_invisible_Planet_sphere, 32, 32 ), planetSphereMaterial);
+				invisible_planet_sphere.position.set(satellite.position.x,satellite.position.y,satellite.position.z);
+				invisible_planet_sphere.name = "planetSphere";
+				scene2.add(invisible_planet_sphere); 
+				invisible_planet_sphere.momentum = satellite.momentum;
+// 				}
+			}
+			function InitArrow(){//planet_arrow, (egh), invisible_arrow_sphere, line
+				//arrow tip
+				var material = new THREE.MeshBasicMaterial( { color: 0x0066cc, transparent: true, opacity:0.9 } );//not affected by lights
+				var radius = 10, h = 10.6, segments = 3;
+				geometry_arrow = new THREE.CylinderGeometry( radius, radius, h, segments );
+				geometry_arrow.applyMatrix( new THREE.Matrix4().makeRotationFromEuler( new THREE.Euler( 0 , Math.PI, 0 ) ) );
+				planet_arrow = new THREE.Mesh( geometry_arrow, material );
+				planet_arrow.name = "arrow";
+				planet_arrow.position.set(100,0,0);
+				scene2.add( planet_arrow ); 
+				
+				//arrow tip edge helper
+				egh = new THREE.EdgesHelper( planet_arrow, 0x0097de);//33cccc
+				egh.material.linewidth = 2;
+				scene2.add( egh );
+				
+				//sphere arount the arrow tip (bigger for grabbing) 
+				if(USE_ARROW_SPHERE){
+				invisible_arrow_sphere = new THREE.Mesh( new THREE.SphereGeometry( size_Planet, 32, 32 ),  new THREE.MeshBasicMaterial( {wireframe:false,  color: 0x3399ff, transparent:true, opacity:0.15, depthTest: false } ) );// opacity:0.5
+				invisible_arrow_sphere.position.set(100,0,0);
+				invisible_arrow_sphere.name = "arrowSphere";
+				scene2.add(invisible_arrow_sphere);
+				}
+				
+				//line connenting the planet and the arrow
+				scene2.remove(line); 
+				geometryline = new THREE.Geometry();
+				geometryline.vertices.push(new THREE.Vector3(satellite.position.x, satellite.position.y, satellite.position.z));
+				geometryline.vertices.push(new THREE.Vector3(satellite.position.x+satellite.momentum.x*mom_scale, satellite.position.y+satellite.momentum.y*mom_scale, satellite.position.z+satellite.momentum.z*mom_scale));
+// 				geometryline.vertices.push(new THREE.Vector3(satellite.position.x+satellite.momentum.x*(mom_scale+init_arrow_length), satellite.position.y+satellite.momentum.y*mom_scale, satellite.position.z+satellite.momentum.z*(mom_scale+init_arrow_length)));
+				line = new THREE.Line(geometryline, new THREE.LineBasicMaterial( {  color: 0x0077be, sizeAttenuation: true, depthTest: true, linewidth: 3} ));
+				scene2.add(line);
+			}
+			function InitStarSprites(){
+				{//sprites
+					// sun-sprite
+					sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+						map: texture_Star_Sprite,
+						transparent: true,
+						blending: THREE.AdditiveBlending,
+						useScreenCoordinates: true,
+						color: 0xE86C19,//yellow
+						depthWrite: true,
+						depthTest: true,
+						alphaTest: 0.2
+					}));
+					sprite.scale.x = size_Star*1.0*4.5;
+					sprite.scale.y = size_Star*1.0*4.5;
+					sprite.scale.z = 1.;
+					scene.add(sprite);
+
+					sprite2 = new THREE.Sprite(new THREE.SpriteMaterial({
+						map: texture_sprite2_yellow,
+						transparent: true,
+						blending: THREE.AdditiveBlending,
+						useScreenCoordinates: true,
+						color: 0xffffff,
+						depthWrite: false,
+						depthTest: false,
+						alphaTest: 0.2
+					}));
+					sprite2.scale.x = size_Star*2.7*4.5;
+					sprite2.scale.y = size_Star*2.7*4.5;
+					sprite2.scale.z = 1;
+					scene.add(sprite2);
+
+					sprite3 = new THREE.Sprite(new THREE.SpriteMaterial({
+						map: texture_sprite2_yellow,
+						transparent: true,
+						blending: THREE.AdditiveBlending,
+						useScreenCoordinates: true,
+						color: 0xE86C19,
+						depthWrite: false,
+						depthTest: true,
+						alphaTest: 0.9,
+					}));
+					sprite3.scale.x = size_Star*2.7*4.5;
+					sprite3.scale.y = size_Star*2.7*4.5;
+					sprite3.scale.z = 1;
+					sprite.rotation.z = 90*Math.PI/180;
+					scene2.add(sprite3);//to occlude the planet
+					
+					sprite4 = new THREE.Sprite(new THREE.SpriteMaterial({
+						map: texture_sprite2_yellow,
+						transparent: true,
+						blending: THREE.AdditiveBlending,
+						useScreenCoordinates: true,
+						color: 0xffffff,
+						depthWrite: false,
+						depthTest: true,
+						alphaTest: 0.2,
+					}));
+					sprite4.scale.x = size_Star*2.7*4.5;
+					sprite4.scale.y = size_Star*2.7*4.5;
+					sprite4.scale.z = 1;
+					scene.add(sprite4);//to occlude the planet	
+
+					sprite5 = new THREE.Sprite(new THREE.SpriteMaterial({
+						map: texture_Star_Sprite,
+						transparent: true,
+						blending: THREE.AdditiveBlending,
+						useScreenCoordinates: true,
+						color: 0xffffff,
+						depthWrite: false,
+						depthTest: true,
+						alphaTest: 0.2,
+					}));
+					sprite5.scale.x = size_Star*sprite5scale*4.5;
+					sprite5.scale.y = size_Star*sprite5scale*4.5;
+					sprite5.scale.z = 1;
+					scene2.add(sprite5);//to occlude the planet	
+				}
+			}
+			function InitTrailParticles() {
+				particleGroup = new SPE.Group({
+					texture: trailTex,
+					maxAge: 40//20
+				});
+				emitter2 = new SPE.Emitter({
+					position: new THREE.Vector3(0, 0, 0),
+					acceleration: new THREE.Vector3(0, 0, 0),
+					accelerationSpread: new THREE.Vector3(0, 0, 0),
+					velocity: new THREE.Vector3(0, 0, 0),
+					colorStart: (new THREE.Color()).setRGB(0.0, 119/255.0*0.2, 190/255.0*0.2),
+//					colorEnd: (new THREE.Color()).setRGB(0.0, 119/255.0, 190/255.0),
+					sizeStart: 30,
+					sizeEnd: 0,
+					particleCount: 1500
+				});
+				particleGroup.addEmitter( emitter2 );       
+				scene2.add( particleGroup.mesh );//this way I can see the trail through opaque discs (and I get depth with planets)
+			} 					
+			function InitHabitableZones(){
+				{//2D tori / toruses i.e rings -> rather than a "disc"
+					var arcShape = new THREE.Shape();
+	// 				arcShape.moveTo( 0, 0 );
+					arcShape.absarc( 0, 0, ring_three, 0, Math.PI*2, false );
+					//shape.arc(center_x, center_y, radius, start_angle, end_angle, clockwise);
+
+					var holePath = new THREE.Path();
+	// 				holePath.moveTo( 20, 10 );
+					holePath.absarc( 0, 0, ring_two, 0, Math.PI*2, true );
+					arcShape.holes.push( holePath );
+					
+					disc_geometry = new THREE.ShapeGeometry( arcShape );
+					disc_green = new THREE.Mesh( disc_geometry, material_green2 );
+					disc_green.rotation.x = 90 * Math.PI / 180;
+					scene.add( disc_green );
+// 					scene2.add( disc_green );
+// 					disc_green.renderDepth=0;
+		
+					var arcShape2 = new THREE.Shape();
+					arcShape2.absarc( 0, 0, ring_end, 0., 2*Math.PI, false );
+// 					arcShape2.absellipse( 0, 0, ring_end, ring_end, 0., 2*Math.PI, false );
+					var holePath2 = new THREE.Path();
+					holePath2.absarc( 0, 0, ring_three, 0., 2*Math.PI, true );
+					arcShape2.holes.push( holePath2 );
+					
+					disc_geometry2 = new THREE.ShapeGeometry( arcShape2 );
+					disc_blue = new THREE.Mesh( disc_geometry2, material_blue2 );
+					disc_blue.rotation.x = 90 * Math.PI / 180;
+					scene.add( disc_blue );	
+
+					var arcShape3 = new THREE.Shape();
+					arcShape3.absarc( 0, 0, ring_two, 0, Math.PI*2, false );
+					var holePath3 = new THREE.Path();
+					holePath3.absarc( 0, 0, ring_one, 0, Math.PI*2, true );
+					arcShape3.holes.push( holePath3 );
+					disc_geometry3 = new THREE.ShapeGeometry( arcShape3 );
+					disc_red = new THREE.Mesh( disc_geometry3, material_red2 );
+					disc_red.rotation.x = 90 * Math.PI / 180;
+					scene.add( disc_red );
+				}
+			}
+			function mapUV(geometry){
+				//remapping the geometry UV coordinates to accept the canvas texture
+				geometry.computeBoundingBox();
+
+				var max = geometry.boundingBox.max, min = geometry.boundingBox.min;
+				var offset = new THREE.Vector2(0 - min.x, 0 - min.y);
+				var range = new THREE.Vector2(max.x - min.x, max.y - min.y);
+				var faces = geometry.faces;
+
+				geometry.faceVertexUvs[0] = [];
+
+				for (var i = 0; i < faces.length ; i++) {
+					var 	v1 = geometry.vertices[faces[i].a], 
+						v2 = geometry.vertices[faces[i].b], 
+						v3 = geometry.vertices[faces[i].c];
+
+					geometry.faceVertexUvs[0].push([
+						new THREE.Vector2((v1.x + offset.x)/range.x ,(v1.y + offset.y)/range.y),
+						new THREE.Vector2((v2.x + offset.x)/range.x ,(v2.y + offset.y)/range.y),
+						new THREE.Vector2((v3.x + offset.x)/range.x ,(v3.y + offset.y)/range.y)
+					]);
+				}
+				geometry.uvsNeedUpdate = true;
+			}
+			function InitHabitableZonesFluffy(){
+				{//2D tori / toruses i.e rings -> rather than a "disc"
+					var arcShape2 = new THREE.Shape();
+					arcShape2.absarc( 0, 0, ring_end, 0., 2*Math.PI, false );
+					var holePath2 = new THREE.Path();
+					holePath2.absarc( 0, 0, ring_one, 0., 2*Math.PI, true );
+					arcShape2.holes.push( holePath2 );
+					
+// 					var spacedPoints = arcShape2.createSpacedPointsGeometry(360);
+// 					var line2 = new THREE.Line( spacedPoints, new THREE.LineBasicMaterial( { color: 0xff0000, linewidth: 3 }));
+// 					line2.rotation.x=90*Math.PI/180;
+// 					scene.add(line2);
+					
+// // 					var spacedPoints = arcShape2.createSpacedPointsGeometry( 400 );
+// // // 				console.log(spacedPoints);
+// // 					var particles = new THREE.Points( spacedPoints, new THREE.PointsMaterial( { size: 4 } ) );
+// // 					particles.rotation.x = 90 * Math.PI / 180;
+// // 					scene.add( particles );	
+					
+					disc_geometry2 = new THREE.ShapeGeometry( arcShape2 );
+// 					disc_geometry2 = new THREE.ShapeBufferGeometry( arcShape2 );
+					
+					mapUV(disc_geometry2); //remapping the geometry UV coordinates to accept the canvas texture
+
+					disc_blue = new THREE.Mesh( disc_geometry2, material_gradient );
+					disc_blue.rotation.x = 90 * Math.PI / 180;
+					scene.add( disc_blue );	
+				}			
+			}
+			function generateTexture(){//for fluffy habitable zones
+				var size = 512;
+
+				// create canvas
+				canvas = document.createElement( 'canvas' );
+				canvas.width = size;
+				canvas.height = size;
+
+				// get context
+				var context = canvas.getContext( '2d' );
+
+				// draw gradient
+				context.rect( 0, 0, size, size );
+				var gradient=context.createRadialGradient(size/2,size/2,0,size/2,size/2,size/2);
+				
+				//red, green ring, blue
+				gradient.addColorStop(0, "transparent");
+				gradient.addColorStop(0.2, "transparent");
+				gradient.addColorStop(0.32, 'rgba(140,20,0,'+0.10+')');//0.32
+				gradient.addColorStop(0.39, 'rgba(0,80,30,'+0.5+')');//0.39
+				gradient.addColorStop(0.53, 'rgba(0,80,30,'+0.5+')');
+				gradient.addColorStop(0.67, 'rgba(0,80,30,'+0.5+')');
+				gradient.addColorStop(0.75, 'rgba(0,100,140,'+0.2+')');
+				gradient.addColorStop(1, "transparent");	
+		
+				context.fillStyle = gradient;
+				context.fillRect(0, 0, size, size);
+				//context.fill();
+				
+				return canvas;
+			}			
+			//labels
+			function DrawRectangle(ctx, x, y, w, h, r){
+					ctx.beginPath();
+					ctx.moveTo(x+r, y);
+					ctx.lineTo(x+w-r, y);
+					ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+					ctx.lineTo(x+w, y+h-r);
+					ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+					ctx.lineTo(x+r, y+h);
+					ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+					ctx.lineTo(x, y+r);
+					ctx.quadraticCurveTo(x, y, x+r, y);
+					ctx.closePath();
+					ctx.fill();
+					ctx.stroke();   
+			}
+			function TextSprite( message, parameters ){
+					//https://stemkoski.github.io/Three.js/Sprite-Text-Labels.html
+					if ( parameters === undefined ) parameters = {};
+					
+					var fontface = parameters.hasOwnProperty("fontface") ? 
+						parameters["fontface"] : "Arial";
+					
+					var fontsize = parameters.hasOwnProperty("fontsize") ? 
+						parameters["fontsize"] : 18;
+					
+					var borderThickness = parameters.hasOwnProperty("borderThickness") ? 
+						parameters["borderThickness"] : 4;
+					
+					var borderColor = parameters.hasOwnProperty("borderColor") ?
+						parameters["borderColor"] : { r:0, g:0, b:0, a:1.0 };
+					
+					var backgroundColor = parameters.hasOwnProperty("backgroundColor") ?
+						parameters["backgroundColor"] : { r:255, g:255, b:255, a:1.0 };
+
+					var fontColor = parameters.hasOwnProperty("fontColor") ?
+						parameters["fontColor"] : { r:0, g:0, b:0, a:1.0 };
+						
+					
+					var canvas = document.createElement('canvas');
+					var context = canvas.getContext('2d');
+					context.font = "Bold " + fontsize + "px " + fontface;
+					
+					// get size data (height depends only on font size)
+					var metrics = context.measureText( message );
+					var textWidth = metrics.width;
+					
+					// background color
+					context.fillStyle   = "rgba(" + backgroundColor.r + "," + backgroundColor.g + ","
+												+ backgroundColor.b + "," + backgroundColor.a + ")";
+					
+					// border color
+					context.strokeStyle = "rgba(" + borderColor.r + "," + borderColor.g + ","
+												+ borderColor.b + "," + borderColor.a + ")";
+
+					context.lineWidth = borderThickness;
+					DrawRectangle(context, borderThickness/2, borderThickness/2, textWidth + borderThickness, fontsize * 1.4 + borderThickness, 6);
+					// 1.4 is extra height factor for text below baseline: g,j,p,q.
+					
+					// text color
+					context.fillStyle   = "rgba(" + fontColor.r + "," + fontColor.g + "," + fontColor.b + "," + fontColor.a + ")";//"rgba(0, 100, 255, 1.0)";//cyanish
+					
+					
+					context.fillText( message, borderThickness, fontsize + borderThickness);
+					
+					// canvas contents will be used for a texture
+					var texture = new THREE.Texture(canvas) 
+					texture.needsUpdate = true;
+
+					var spriteMaterial = new THREE.SpriteMaterial( 
+						{ map: texture, useScreenCoordinates: false } );//, alignment: spriteAlignment
+					var sprite = new THREE.Sprite( spriteMaterial );
+					sprite.scale.set(100,50,1.0);
+					return sprite;	
+			}			
+			function InitLabels(){
+				labelPlanet =  TextSprite( " Drag Me ", 
+					{ fontsize: 42, borderColor: {r:0, g:100, b:255, a:1.0}, backgroundColor: {r:180, g:180, b:180, a:0.5}, fontColor: {r:255, g:255, b:255, a:1.0}});
+// 				labelPlanet.position.set(80.,0.,0.);
+				scene2.add( labelPlanet );
+				
+				labelArrow =  TextSprite( " Pull Me ", 
+					{ fontsize: 42, borderColor: {r:0, g:100, b:255, a:1.0}, backgroundColor: {r:180, g:180, b:180, a:0.5}, fontColor: {r:255, g:255, b:255, a:1.0}});
+				scene2.add( labelArrow );
+			}
+			function InitObjects(){
+				InitNBody();
+				InitArrow();
+				InitStarSprites();
+				InitTrailParticles();
+				if(!FLUFFY) InitHabitableZones();//also change within the StarFunction()
+				if(FLUFFY) InitHabitableZonesFluffy();//also change within the StarFunction()
+				if(LABLES_ON) InitLabels();//needs arrow to be positioned correctly
+				if(GRID_ON) InitGrid();				
+			}
+			
+			//dragging
+			function DragAndDrop(){//set the planes for raycasting and objects to be dragged
+// 				//green plane for the raycaster
+// 			        plane = new THREE.Mesh(new THREE.PlaneGeometry(space_size * 2 + 100, space_size * 2 + 100, 18, 18), new THREE.MeshBasicMaterial({color: 0x00ff00,opacity: 0.25,side: THREE.DoubleSide,transparent: true}));
+// 				plane.visible = false;
+// 				scene.add(plane);
+				
+				//blue plane for the movement and raycaster intercestion
+			        planar = new THREE.Mesh(new THREE.PlaneGeometry(space_size * 2 + 100, space_size * 2 + 100, 18, 18), new THREE.MeshBasicMaterial({color: 0x0000ff,opacity: 0.25,side: THREE.DoubleSide,transparent: true}));
+				planar.rotation.x = 90*Math.PI/180;
+				planar.visible = false;
+				scene.add(planar);
+				
+				//object for dragging
+				if(USE_PLANET_SPHERE) 	objects.push(invisible_planet_sphere);
+				if(!USE_PLANET_SPHERE) 	objects.push(satellite);
+				if(USE_ARROW_SPHERE) 	objects.push(invisible_arrow_sphere);
+				if(!USE_ARROW_SPHERE) 	objects.push(planet_arrow);
+			}
+	
+			//listeners, raycasting
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+			}
+			function rayCastDown(vector) {
+				// First thing to do is unproject the vector. We do this by using the unproject function which converts the 2D mouse position to a 3D vector.
+				vector.unproject(camera);
+
+				// now we cast a ray using this vector and see what is hit.
+				var raycaster = new THREE.Raycaster(camera.position, vector.sub(camera.position).normalize());
+
+				// intersects contains an array of objects that might have been hit
+				var intersects = raycaster.intersectObjects(objects);
+// 				console.log(intersects.length);
+				if (intersects.length > 0) {
+					controls.noRotate = true;
+					
+					// the first one is the object we'll be moving around
+					selectedObject = intersects[0].object;
+
+					if((selectedObject.name == "planet" || selectedObject.name == "planetSphere")){
+						focus_planet = true;
+						
+                        //'hold' event for 'touchstart' (correct the jump when starting the hold with the touch)
+                        if(USE_PLANET_SPHERE){
+                            hold_planet_position.x = invisible_planet_sphere.position.x;
+                            hold_planet_position.z = invisible_planet_sphere.position.z;                    
+                        }
+                        if(!USE_PLANET_SPHERE){
+                            hold_planet_position.x = satellite.position.x;
+                            hold_planet_position.z = satellite.position.z;                    
+                        }
+					}
+					if((selectedObject.name == "arrow" || selectedObject.name == "arrowSphere")){
+						focus_arrow = true;
+						
+                        //'hold' event for 'touchstart' (correct the jump when starting the hold with the touch)
+                        if(USE_ARROW_SPHERE){
+                            hold_arrow_position.x  = invisible_arrow_sphere.position.x;
+                            hold_arrow_position.z  = invisible_arrow_sphere.position.z;	                    
+                        }
+                        if(!USE_ARROW_SPHERE){
+                            hold_arrow_position.x  = planet_arrow.position.x;
+                            hold_arrow_position.z  = planet_arrow.position.z;	
+                        }
+					}
+					
+					// and calculate the offset (no need - use the "planar" plane)
+// 					if(raycaster.intersectObject(plane)){
+// 						var intersects = raycaster.intersectObject(plane);
+// 						offset.copy(intersects[0].point).sub(plane.position);
+// 					}else{
+// 						offset = new THREE.Vector3(0.,0.,0.);
+// 					}
+// 					console.log("offset: ",offset);
+				}
+				else controls.noRotate = false;
+			}
+			function rayCastMove(vector) {
+				if(camera !== undefined && camera ){ 
+					vector.unproject(camera);
+					var raycaster = new THREE.Raycaster(camera.position, vector.sub(camera.position).normalize());
+
+					// first check if we've already selected an object by clicking
+					if (selectedObject) {
+						// check the position where the plane is intersected
+						if(planar){
+							var intersects = raycaster.intersectObject(planar);
+							// reposition the selectedobject based on the intersection with the plane
+							if (intersects.length > 0){ 
+// 								selectedObject.position.copy(intersects[0].point.sub(offset));
+								selectedObject.position.copy(intersects[0].point);
+// // 								//satellite.position.set = new THREE.Vector3(selectedObject.position);//is getting set already
+// 								console.log("selected: ", selectedObject.name);
+// // 								if(selectedObject.name == "planet"){//update the arrow position when planet is moved (keep it dependent on the planet)
+// //     									//satellite.position.set = new THREE.Vector3(selectedObject.position.x,0.0,selectedObject.position.z);//is getting set already
+// // 									invisible_arrow_sphere.position.set(satellite.position.x+satellite.momentum.x*mom_scale, satellite.position.y+satellite.momentum.y*mom_scale, satellite.position.z+satellite.momentum.z*mom_scale);
+// // 								}
+							}
+						}
+						controls.noRotate = true;
+					} else {
+// 						// if we haven't selected an object, we check if we might need to reposition our plane. We need to do this here, since
+// 						// we need to have this position before the onmousedown to calculate the offset.
+// 						var intersects = raycaster.intersectObjects(objects);
+// 
+// 						if (intersects.length > 0) {
+// 						    // now reposition the plane to the selected objects position
+// 						    plane.position.copy(intersects[0].object.position);
+// 						    // and align with the camera.
+// 						    plane.lookAt(camera.position);
+// 						}
+
+						controls.noRotate = false;
+					}
+				} 	
+			}
+			function onDocumentMouseMove( event ) {//using rayCastMove (could also have the mousemove holding event here, but it is in AddListeners() )
+				// make sure we don't access anything else
+				event.preventDefault();
+
+				// get the mouse positions
+				mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+				mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+				
+				// get the 3D position and create a raycaster
+				var vector = new THREE.Vector3(mouse.x, mouse.y, 0.5);
+				
+				rayCastMove(vector);
+			}
+			function onDocumentMouseDown( event ) {//using rayCastDown
+// 				console.log("webgl mouse down");
+				focus_planet = false;
+				focus_arrow = false;
+				
+				// get the mouse positions
+				mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+				mouse.y = -( event.clientY / window.innerHeight ) * 2 + 1;
+// 				console.log("mouse down", mouse.x, mouse.y);
+
+				// use the projector to check for intersections.
+				var vector = new THREE.Vector3(mouse.x, mouse.y, 0.5);
+				
+				rayCastDown(vector);
+			};	
+			function onDocumentMouseUp( event ) {
+// 				console.log("webgl mouse up + touch end");
+				focus_planet = false;
+				focus_arrow = false;
+				
+// 				console.log("up");
+				selectedObject = null;
+			}
+			function touchHandler(event){//mapping touch events to mouse events - not used
+				var touches = event.changedTouches, first = touches[0], type = "";
+			
+				switch(event.type){
+					case "touchstart": type = "mousedown"; break;
+					case "touchmove":  type="mousemove"; break;
+					case "touchend":   type="mouseup"; break;
+					default: return;
+				}
+				var simulatedEvent = document.createEvent("MouseEvent");
+				simulatedEvent.initMouseEvent(type, true, true, window, 1,
+										first.screenX, first.screenY,
+										first.clientX, first.clientY, false,
+										false, false, false, 0/*left*/, null);
+				first.target.dispatchEvent(simulatedEvent);
+				event.preventDefault();
+			}			
+			function onDocumentTouchStart(event) {//using rayCastDown
+// 				console.log("webgl touch start");
+				focus_planet = false;
+				focus_arrow = false;
+				
+				// get the touch position
+				touch.x = ( event.targetTouches[0].pageX / window.innerWidth ) * 2 - 1;
+				touch.y = -( event.targetTouches[0].pageY / window.innerHeight ) * 2 + 1;
+// 				console.log("touch start", touch.x, touch.y);
+				
+ 				{//'hold' event for 'touchstart' (correct the jump when starting the hold with the touch) -> moved to where the focus is set rayCastDown()
+// 				if(USE_PLANET_SPHERE){
+// 					hold_planet_position.x = invisible_planet_sphere.position.x;
+// 					hold_planet_position.z = invisible_planet_sphere.position.z;                    
+// 				}
+// 				if(!USE_PLANET_SPHERE){
+// 					hold_planet_position.x = satellite.position.x;
+// 					hold_planet_position.z = satellite.position.z;                    
+// 				}
+// 				if(USE_ARROW_SPHERE){
+// 					hold_arrow_position.x  = invisible_arrow_sphere.position.x;
+// 					hold_arrow_position.z  = invisible_arrow_sphere.position.z;	                    
+// 				}
+// 				if(!USE_ARROW_SPHERE){
+// 					hold_arrow_position.x  = planet_arrow.position.x;
+// 					hold_arrow_position.z  = planet_arrow.position.z;	
+// 				}
+                }
+
+				// use the projector to check for intersections.
+				var vector = new THREE.Vector3(touch.x, touch.y, 0.5);
+				
+				rayCastDown(vector);	
+			}	
+			function onDocumentTouchMove(event) {//using rayCastMove + touchmove holding event
+				// make sure we don't access anything else
+				event.preventDefault();
+
+				// get the touch position
+				touch.x = ( event.targetTouches[0].pageX / window.innerWidth ) * 2 - 1;
+				touch.y = -( event.targetTouches[0].pageY / window.innerHeight ) * 2 + 1;
+				
+				// get the 3D position and create a raycaster
+				var vector = new THREE.Vector3(touch.x, touch.y, 0.5);
+				
+				rayCastMove(vector);		
+				
+				//to hold in place (has to be here otherwise it doesn't get the moved positions)
+				if(!USE_PLANET_SPHERE){	temp_planet_position = satellite.position;}
+				if(USE_PLANET_SPHERE){	temp_planet_position = invisible_planet_sphere.position;}
+				if(!USE_ARROW_SPHERE){	temp_arrow_position = planet_arrow.position;}
+				if(USE_ARROW_SPHERE){	temp_arrow_position = invisible_arrow_sphere.position;}	
+				var eventNew = new CustomEvent("hold", {
+						detail: {
+						    planet_posx: temp_planet_position.x,
+						    planet_posz: temp_planet_position.z,
+						    arrow_posx: temp_arrow_position.x,
+						    arrow_posz: temp_arrow_position.z 
+						},
+						bubbles: true,
+						cancelable: true
+				});
+				event.target.dispatchEvent(eventNew);
+			}				
+			function AddListeners(){//mousemove holding event + hold event listener
+				window.addEventListener( 'resize', onWindowResize, false );
+				window.addEventListener( 'mousemove', onDocumentMouseMove, false );
+				window.addEventListener( 'mousedown', onDocumentMouseDown, false );
+				window.addEventListener( 'mouseup', onDocumentMouseUp, false );
+				
+				//mapping mouse to touch
+// 				window.addEventListener("touchstart", touchHandler, true);
+// 				window.addEventListener("touchmove", touchHandler, true);
+// 				window.addEventListener("touchend", touchHandler, true);
+// 				window.addEventListener("touchcancel", touchHandler, true);
+				//manual touch
+				window.addEventListener("touchstart", onDocumentTouchStart, true);
+				window.addEventListener("touchmove", onDocumentTouchMove, true);
+				window.addEventListener("touchend", onDocumentMouseUp, true);
+
+				window.addEventListener('mousemove', function (event) {//keep the planet or arrow in place if holding on
+					if(!USE_PLANET_SPHERE){	temp_planet_position = satellite.position;}
+					if(USE_PLANET_SPHERE){	temp_planet_position = invisible_planet_sphere.position;}
+					if(!USE_ARROW_SPHERE){	temp_arrow_position = planet_arrow.position;}
+					if(USE_ARROW_SPHERE){	temp_arrow_position = invisible_arrow_sphere.position;}	
+					var eventNew = new CustomEvent("hold", {
+							detail: {
+							    planet_posx: temp_planet_position.x,
+							    planet_posz: temp_planet_position.z,
+							    arrow_posx: temp_arrow_position.x,
+							    arrow_posz: temp_arrow_position.z 
+							},
+							bubbles: true,
+							cancelable: true
+					});
+					event.target.dispatchEvent(eventNew);
+				});	
+				window.addEventListener('hold', function(event) {
+// 					console.log('You are moving your pointer');//otherwise you hold  (was You stopped moving your pointer)
+// 					console.log('Planet coordinates are: ', event.detail.planet_posx, event.detail.planet_posz);
+// 					console.log('Arrow coordinates are: ' , event.detail.arrow_posx, event.detail.arrow_posz);
+					hold_planet_position.x = event.detail.planet_posx;
+					hold_planet_position.z = event.detail.planet_posz;
+					hold_arrow_position.x  = event.detail.arrow_posx;
+					hold_arrow_position.z  = event.detail.arrow_posz;
+					// The event will bubble up to parent elements.
+				});
+			}
+			
+			function updateSize() {
+				if ( windowWidth != window.innerWidth || windowHeight != window.innerHeight ) {
+					windowWidth  = window.innerWidth;
+					windowHeight = window.innerHeight;
+					renderer.setSize ( windowWidth, windowHeight );
+				}
+			}						
+			function animate() {
+				controls.update();
+// 				requestAnimationFrame( animate );
+
+				{//n-body (planet)				(center, satellite, invisible_planet_sphere)
+					if(!USE_PLANET_SPHERE){
+						//simulation (center and satellite)
+						var simulate = new THREE.Nbody();
+						if(center && satellite) simulate.position( center, satellite );
+						satellite.position.y = 0;//because of a small camera offset want to keep it perfectly aligned
+						
+						//the invisible_planet_sphere follows the planet (need it for update even when the satellite is simulated)
+						if(invisible_planet_sphere && satellite){
+						invisible_planet_sphere.position.x=satellite.position.x;
+						invisible_planet_sphere.position.y=satellite.position.y;
+						invisible_planet_sphere.position.z=satellite.position.z;
+						}
+					}
+
+					if(USE_PLANET_SPHERE){
+						//simulation (center and invisible_planet_sphere)
+						var simulate = new THREE.Nbody();
+						if(center && invisible_planet_sphere) simulate.position( center, invisible_planet_sphere );//not without the momentum
+						invisible_planet_sphere.position.y = 0;//because of a small camera offset want to keep it perfectly aligned
+						
+						//the planet follows the invisible_planet_sphere 
+						if(invisible_planet_sphere && satellite){
+						satellite.position.x = invisible_planet_sphere.position.x;
+						satellite.position.y = invisible_planet_sphere.position.y;
+						satellite.position.z = invisible_planet_sphere.position.z;	
+						}
+						
+						//momentum updated when moving 
+// 						satellite.momentum = invisible_planet_sphere.momentum;//updated when moving
+					}
+				}
+				if(focus_planet){//if planet is held (focus_planet + mousestop) keep it in place
+					if(!USE_PLANET_SPHERE){
+						satellite.position.x = hold_planet_position.x;
+						satellite.position.z = hold_planet_position.z;	
+					}
+					if(USE_PLANET_SPHERE){
+						invisible_planet_sphere.position.x = hold_planet_position.x;
+						invisible_planet_sphere.position.z = hold_planet_position.z;
+					}
+				}
+				
+				{//arrow					(satellite, planet_arrow, invisible_arrow_sphere, line)
+					if(!USE_ARROW_SPHERE){
+						if(planet_arrow){//set the arrow position using the planet
+						planet_arrow.position.set(satellite.position.x+satellite.momentum.x*mom_scale, satellite.position.y+satellite.momentum.y*mom_scale, satellite.position.z+satellite.momentum.z*mom_scale);
+						planet_arrow.position.y = 0;
+						planet_arrow.lookAt( satellite.position );
+						}
+						
+// 						if(invisible_arrow_sphere){//invisible_arrow_sphere follows the arrow
+// 						invisible_arrow_sphere.position.set(planet_arrow.position.x, planet_arrow.position.y, planet_arrow.position.z);
+// 						}	
+					}
+
+					if(USE_ARROW_SPHERE){
+						if(invisible_arrow_sphere){//set the invisible_arrow_sphere position using the planet
+						invisible_arrow_sphere.position.set(satellite.position.x+satellite.momentum.x*mom_scale, satellite.position.y+satellite.momentum.y*mom_scale, satellite.position.z+satellite.momentum.z*mom_scale);
+						invisible_arrow_sphere.position.y = 0;
+						}
+						
+						if(planet_arrow){//set the arrow position using the invisible_arrow_sphere
+						planet_arrow.position.set(invisible_arrow_sphere.position.x, invisible_arrow_sphere.position.y, invisible_arrow_sphere.position.z);
+						planet_arrow.lookAt( satellite.position );
+						}
+					}
+					
+					if(line && satellite && planet_arrow){//set the line positions between the planet and the arrow
+					geometryline.vertices[0].x = satellite.position.x;
+					geometryline.vertices[0].y = satellite.position.y;
+					geometryline.vertices[0].z = satellite.position.z;
+					geometryline.vertices[1].x = planet_arrow.position.x;
+					geometryline.vertices[1].y = planet_arrow.position.y;
+					geometryline.vertices[1].z = planet_arrow.position.z;
+					line.geometry.verticesNeedUpdate = true;
+					}
+				}
+				if(focus_arrow){//if arrow is held (focus_arrow + mousestop) keep it in place + update satellite's momentum
+					if(!USE_ARROW_SPHERE){
+						planet_arrow.position.x = hold_arrow_position.x;
+						planet_arrow.position.z = hold_arrow_position.z;	
+					}
+					if(USE_ARROW_SPHERE){
+						invisible_arrow_sphere.position.x = hold_arrow_position.x;
+						invisible_arrow_sphere.position.z = hold_arrow_position.z;
+					}
+
+					//update momentum if arrow is pulled
+					if(USE_PLANET_SPHERE && USE_ARROW_SPHERE){//(invisible_planet_sphere, invisible_arrow_sphere)		(using satellite for update)
+						invisible_planet_sphere.momentum.x = scaleM*(invisible_arrow_sphere.position.x - invisible_planet_sphere.position.x);
+	// 					satellite.momentum.y = scaleM*(invisible_arrow_sphere.position.y - satellite.position.y);
+						invisible_planet_sphere.momentum.z = scaleM*(invisible_arrow_sphere.position.z - invisible_planet_sphere.position.z);
+					}
+					if(!USE_PLANET_SPHERE && USE_ARROW_SPHERE){//(satellite, invisible_arrow_sphere)			(using invisible_planet_sphere for update)
+						satellite.momentum.x = scaleM*(invisible_arrow_sphere.position.x - satellite.position.x);
+	// 					satellite.momentum.y = scaleM*(invisible_arrow_sphere.position.y - invisible_planet_sphere.position.y);
+						satellite.momentum.z = scaleM*(invisible_arrow_sphere.position.z - satellite.position.z);				
+					}	
+					if(USE_PLANET_SPHERE && !USE_ARROW_SPHERE){//(invisible_planet_sphere, planet_arrow) 			(using satellite for update)
+						invisible_planet_sphere.momentum.x = scaleM*(planet_arrow.position.x - invisible_planet_sphere.position.x);
+	// 					satellite.momentum.y = scaleM*(planet_arrow.position.y - satellite.position.y);
+						invisible_planet_sphere.momentum.z = scaleM*(planet_arrow.position.z - invisible_planet_sphere.position.z);				
+					}			
+					if(!USE_PLANET_SPHERE && !USE_ARROW_SPHERE){//(satellite, planet_arrow)  				(using invisible_planet_sphere for update)
+						satellite.momentum.x = scaleM*(planet_arrow.position.x - satellite.position.x);
+	// 					satellite.momentum.y = scaleM*(planet_arrow.position.y - invisible_planet_sphere.position.y);
+						satellite.momentum.z = scaleM*(planet_arrow.position.z - satellite.position.z);				
+					}				
+				}				
+				
+				if(LABLES_ON){//labels following respective objects		(labelPlanet, labelArrow, satellite, planet_arrow)
+					//planet label follows the planet
+					if(labelPlanet && satellite){
+					labelPlanet.position.x = satellite.position.x + 50;
+					labelPlanet.position.y = satellite.position.y;
+					labelPlanet.position.z = satellite.position.z + 50;
+					}
+					//arrow label follows the planet_arrow
+					if(labelArrow && satellite && planet_arrow){
+					labelArrow.position.x = planet_arrow.position.x - satellite.momentum.x + 40;
+					labelArrow.position.y = planet_arrow.position.y - satellite.momentum.y;
+					labelArrow.position.z = planet_arrow.position.z - satellite.momentum.z + 40;
+					}				
+				}
+				
+				{//trail particles following the planet		(satellite, emitter2)
+					if(particleGroup){//using the simulation's "beat"
+						particleGroup.tick( simulate.tick / 10.);
+					}				
+				
+					if(emitter2 && satellite){
+					emitter2.position.x = satellite.position.x;
+					emitter2.position.y = satellite.position.y;
+					emitter2.position.z = satellite.position.z;
+					}
+				}				
+				
+				{//shader atributes (planet-star distance calculation for the habitable zones shader)		(satellite)
+					if(satellite) var dist = Math.sqrt(satellite.position.x*satellite.position.x+satellite.position.y*satellite.position.y+satellite.position.z*satellite.position.z);
+					else var dist = -1;
+					uniforms2.distanceToStar.value = dist;
+				}				
+				
+				{//planet temperature calculation
+					//lum: luminosity of the star, in L_sun
+					//dist: distance from the sun, in graphics units (Earth has range 200...209)
+					//factor = sqrt(204.5) * (273.15 + 15)  --> adjusted to have mean Earth temperature at 15 °C
+					//T_eq = factor * lum^(1/4) / sqrt(dist)
+					//var temp = 4121. * Math.pow(lum, 0.25) / Math.sqrt(dist) - 273.15;
+					var temp = 4121. * Math.pow(1.0, 0.25) / Math.sqrt(dist) - 273.15;
+					
+					//tweaked to have ~0 to ~100 within the green habitable zone
+					if(window.size_Star == 1.5*init_size_Star) temp =  5300. * Math.pow(3.4, 0.26) / Math.sqrt(dist) - 273.15;//temp = "blue";//L = 4.4
+					if(window.size_Star == 1.0*init_size_Star) temp =  5000. * Math.pow(1.0, 0.25) / Math.sqrt(dist) - 273.15;//"yellow";//L = 1.0
+					if(window.size_Star == 0.6*init_size_Star) temp =  5000. * Math.pow(0.15, 0.15) / Math.sqrt(dist) - 273.15;//"red";//L = 0.28					
+					
+					//adding the number to the html element
+					document.getElementById("divTemperature").innerHTML = temp.toFixed(0) + " &deg;C";
+				}				
+				
+				{//collision detection		
+				//reset if the Planet enters the Star
+				if(dist==-1){}//do not reload	
+				else if((dist!=-1) && (dist < size_Star-size_Planet)){//distance less than: radius of the Star + radius of the Planet / 2  (or a bit more 3/4 "inside" the Star)
+					window.location.reload(true);
+				}
+
+				//reset if the space sphere is exited (otherwise do the animation loop)
+// 				console.log("distance is larger? ",dist,dist > space_size);
+				if(dist > size_Star-size_Planet && dist < space_size){
+					requestAnimationFrame( animate );
+				}
+				if(dist > space_size){
+					window.location.reload(true);
+				}
+				}
+
+				{//star sprites size update 			(sprite, sprite2, sprite3, sprite4)
+					if(sprite){
+					sprite.scale.x = Math.abs(0.05*Math.sin(uniforms.time.value ) + 1.0)*size_Star*1.0*4.5;
+					sprite.scale.y = Math.abs(0.05*Math.sin(uniforms.time.value ) + 1.0)*size_Star*1.0*4.5;
+					sprite.material.rotation -= 0.03*Math.PI/180;
+					}
+					
+					if(sprite2){
+					sprite2.scale.x = Math.abs(0.1*Math.sin(uniforms.time.value ) + 1.1)*size_Star*2.7*4.5;
+					sprite2.material.rotation += 0.03*Math.PI/180;
+					}
+					
+					if(sprite3){
+					sprite3.scale.x = Math.abs(0.1*Math.cos(uniforms.time.value ) + 1.1)*size_Star*2.7*4.5;
+					sprite3.scale.y = Math.abs(0.1*Math.sin(uniforms.time.value ) + 1.1)*size_Star*2.7*4.5;
+					sprite3.material.rotation -= 0.05*Math.PI/180;
+					}
+				
+					if(sprite4){
+					sprite4.scale.x = Math.abs(1.3*Math.cos(uniforms.time.value *0.1))*size_Star*2.7*4.5;
+					sprite4.scale.y = Math.abs(1.3*Math.sin(uniforms.time.value *0.1))*size_Star*2.7*4.5;
+					sprite4.material.rotation += 0.1*Math.PI/180;
+					}
+				}
+				
+				{//left small screen camera 			(satellite)
+					view = views[1];//small one
+					camera = view.camera;
+					
+					if(satellite){
+	// 					norm = Math.sqrt(satellite.position.x*satellite.position.x + satellite.position.y*satellite.position.y + satellite.position.z*satellite.position.z);
+						norm = Math.sqrt(satellite.position.x*satellite.position.x + satellite.position.z*satellite.position.z);
+						tempx = satellite.position.x/norm;
+	// 					tempy = satellite.position.y/norm;
+						tempz = satellite.position.z/norm;
+
+						camera.position.x = satellite.position.x - 69*tempx;//always looking at the lit side
+						camera.position.y = satellite.position.y;
+						camera.position.z = satellite.position.z - 69*tempz;
+	// 					camera.position.x = satellite.position.x + 50;//fixed view angle
+	// 					camera.position.y = satellite.position.y + 20;
+	// 					camera.position.z = satellite.position.z;
+						
+						cameraTarget.x = satellite.position.x;
+						cameraTarget.y = satellite.position.y;
+						cameraTarget.z = satellite.position.z;
+						
+						camera.lookAt(cameraTarget);	
+					}
+					else{
+						cameraTarget.x = 0;
+						cameraTarget.y = 0;
+						cameraTarget.z = 0;
+						
+						camera.lookAt(cameraTarget);						
+					}
+				}
+				
+				render();
+			}
+			function render(dt) {
+				var delta = 5 * clock.getDelta();
+				uniforms.time.value += 0.2 * delta;
+				uniforms2.time.value += 0.2 * delta;
+
+				{//views
+					updateSize();
+				
+					view = views[0];
+					camera = view.camera;
+
+					var left   = Math.floor( windowWidth  * view.left );
+					var bottom = Math.floor( windowHeight * view.bottom );
+					var width  = Math.floor( windowWidth  * view.width );
+					var height = Math.floor( windowHeight * view.height );
+					renderer.setViewport( left, bottom, width, height );
+					renderer.setScissor( left, bottom, width, height );					
+					renderer.enableScissorTest ( true );
+					renderer.setClearColor( view.background );
+
+					camera.aspect = width / height;
+					camera.updateProjectionMatrix();
+
+					renderer.render( scene, camera );
+					renderer.clearDepth();
+					renderer.render( scene2, camera );
+	
+					view = views[1];//upper small one
+					camera = view.camera;
+
+
+					var left   = Math.floor( windowWidth  * view.left );
+					var bottom = Math.floor( windowHeight * view.bottom );
+					var width  = Math.floor( windowWidth  * view.width );
+					var height = Math.floor( windowHeight * view.height );
+					renderer.setViewport( left+2, bottom+2, width-24, height-24 );
+					renderer.setScissor( left, bottom, width-20, height-20 );
+					renderer.enableScissorTest ( true );
+					renderer.setClearColor( view.background );
+
+					camera.aspect = width / height;
+					camera.updateProjectionMatrix();
+
+					renderer.autoClear = true;//trick to have the edge on a small screen
+					renderer.render( scene, camera );
+					renderer.clearDepth();
+					renderer.autoClear = false;//trick to have the edge on a small screen
+					renderer.render( scene2, camera );
+				}	
+
+				renderer.clear();
+				renderer.render( scene, camera );
+				renderer.clearDepth();
+				renderer.autoClear = false;
+				renderer.render( scene2, camera );
+				
+				camera = views[0].camera;//for raycasting (drag and drop)
+			}
+			
+			function StarFunction(scale, scale_discs, Texture, color, v1, v2, v3, v4, texture_sprite){//star function used with the buttons
+						center.mass = 29999999999999999999999*scale;
+
+						{//star textures and sprite colors, sprite textures
+							materialSH.uniforms.texture2.value = Texture;//star texture
+							
+							//sprite colors
+							if(sprite) sprite.material.color.setHex (color);
+							if(sprite3) sprite3.material.color.setHex (color);
+	
+							//sprite textures
+							//texture_sprite2_blue, texture_sprite2_yellow, texture_sprite2_red
+							if(sprite2) sprite2.material.map = texture_sprite;
+							if(sprite3) sprite3.material.map = texture_sprite;
+							if(sprite4) sprite4.material.map = texture_sprite;
+						}
+							
+						{//star sprite sizes
+							center.scale.set(scale*1.0,scale*1.0,scale*1.0);
+							window.size_Star = scale * init_size_Star;
+	
+							if(sprite) sprite.scale.x = window.size_Star*1.0*4.5;
+							if(sprite) sprite.scale.y = window.size_Star*1.0*4.5;
+							if(sprite) sprite.scale.z = 1.;
+							
+							if(sprite2) sprite2.scale.x = window.size_Star*2.7*4.5;
+							if(sprite2) sprite2.scale.y = window.size_Star*2.7*4.5;
+							if(sprite2) sprite2.scale.z = 1;
+							
+							if(sprite5) sprite5.scale.x = window.size_Star*sprite5scale*4.5;
+							if(sprite5) sprite5.scale.y = window.size_Star*sprite5scale*4.5;
+							if(sprite5) sprite5.scale.z = 1;
+						}
+							
+						{//habitable zone disks positions
+							ring_one = position_Planet_x * v1;//2.34//0.5 0.6
+							ring_two = position_Planet_x * v2;//0.95 0.9
+							ring_three=position_Planet_x * v3;//1.7
+							ring_end = position_Planet_x * v4;//4.96//2.0	
+						}
+							
+						if(!FLUFFY){//habitable zone disks (updating disc size (do not need if just scaling))		(this OR the one below)
+							if(disc_red){//if they existed in first place
+							scene.remove(disc_red);
+							scene.remove(disc_green);
+							scene.remove(disc_blue);
+							
+							var arcShape = new THREE.Shape();
+							arcShape.absarc( 0, 0, ring_three, 0, Math.PI*2, false );
+							var holePath = new THREE.Path();
+							holePath.absarc( 0, 0, ring_two, 0, Math.PI*2, true );
+							arcShape.holes.push( holePath );
+							
+							disc_geometry = new THREE.ShapeGeometry( arcShape );
+							disc_green = new THREE.Mesh( disc_geometry, material_green2 );
+							disc_green.rotation.x = 90 * Math.PI / 180;
+							scene.add( disc_green );
+							disc_green.renderDepth=0;
+				
+							var arcShape2 = new THREE.Shape();
+							arcShape2.absarc( 0, 0, ring_end, 0, Math.PI*2, false );
+							var holePath2 = new THREE.Path();
+							holePath2.absarc( 0, 0, ring_three, 0, Math.PI*2, true );
+							arcShape2.holes.push( holePath2 );
+							
+							disc_geometry2 = new THREE.ShapeGeometry( arcShape2 );
+							disc_blue = new THREE.Mesh( disc_geometry2, material_blue2 );
+							disc_blue.rotation.x = 90 * Math.PI / 180;
+							scene.add( disc_blue );	
+							disc_blue.renderDepth=0;
+	
+							var arcShape3 = new THREE.Shape();
+							arcShape3.absarc( 0, 0, ring_two, 0, Math.PI*2, false );
+							var holePath3 = new THREE.Path();
+							holePath3.absarc( 0, 0, ring_one, 0, Math.PI*2, true );
+							arcShape3.holes.push( holePath3 );
+							
+							disc_geometry3 = new THREE.ShapeGeometry( arcShape3 );
+							disc_red = new THREE.Mesh( disc_geometry3, material_red2 );
+							disc_red.rotation.x = 90 * Math.PI / 180;
+							scene.add( disc_red );		
+							disc_red.renderDepth=0;
+							}//if
+						}
+	
+						if(FLUFFY){//habitable zone fluffy disks (updating disc size (do not need if just scaling))	(this OR the one above)
+							if(disc_blue){//if they existed in first place
+							scene.remove(disc_blue);
+							scene.remove(disc_green);
+							
+							////uncomment to see where was the old green zone (have to press one of the buttons (material_red has to available))
+// 							var arcShape = new THREE.Shape();
+// 							arcShape.absarc( 0, 0, ring_three, 0, Math.PI*2, false );
+// 							var holePath = new THREE.Path();
+// 							holePath.absarc( 0, 0, ring_two, 0, Math.PI*2, true );
+// 							arcShape.holes.push( holePath );
+// 							
+// 							disc_geometry = new THREE.ShapeGeometry( arcShape );
+// // 							disc_green = new THREE.Mesh( disc_geometry, material_green2 );
+// 							disc_green = new THREE.Mesh( disc_geometry, material_red );
+// 							disc_green.rotation.x = 90 * Math.PI / 180;
+// 							scene.add( disc_green );
+// 							disc_green.renderDepth=0;
+				
+				
+							var arcShape2 = new THREE.Shape();
+							arcShape2.absarc( 0, 0, ring_end, 0, Math.PI*2, false );
+							var holePath2 = new THREE.Path();
+// 							holePath2.absarc( 0, 0, ring_three, 0, Math.PI*2, true );
+							holePath2.absarc( 0, 0, ring_one, 0, Math.PI*2, true );
+							arcShape2.holes.push( holePath2 );
+							
+							disc_geometry2 = new THREE.ShapeGeometry( arcShape2 );
+							mapUV(disc_geometry2); //remapping the geometry UV coordinates to accept the canvas texture
+							disc_blue = new THREE.Mesh( disc_geometry2, material_gradient );
+							disc_blue.rotation.x = 90 * Math.PI / 180;
+							scene.add( disc_blue );	
+							disc_blue.renderDepth=0;
+							}//if							
+						}
+	
+						{//planet shader (habitable zones) update according to discs
+							materialHabitable.uniforms.sh_ring_one.value = ring_one;
+							materialHabitable.uniforms.sh_ring_two.value = ring_two;
+							materialHabitable.uniforms.sh_ring_three.value = ring_three;
+							materialHabitable.uniforms.sh_ring_end.value = ring_end;
+						}
+			}
+		</script>
+ 
+		<script>//main
+			{//views
+				var windowWidth, windowHeight;
+				var views = [
+					{//large one
+						left: 0.0,//x
+						bottom: 0.0,//y
+						width: 1.0,
+						height: 1.0,
+						background: new THREE.Color().setRGB( 0.5, 0.5, 0.7 ),
+						eye: [ 0.1, 600, 600 ],
+						up: [ 0, 1, 0 ],
+						fov: 60,
+					},	
+					{ //small upper (planet close-up)
+						left: 0.009,//0.05
+						bottom: 0.65,
+						width: 0.15,
+						height: 0.35,
+						background: new THREE.Color().setRGB( 0.0, 119/255.0, 190/255.0 ),
+						eye: [ 0, 0, 700 ],
+						up: [ 0, 1, 0 ],
+						fov: 65,//45
+					}
+				];//view
+			}			
+			{//images / textures
+				var texture_starfield = THREE.ImageUtils.loadTexture( 'Images/Milky4k.jpg');
+				
+				var texture_Earth = THREE.ImageUtils.loadTexture( 'Images/earth_clouds.png');
+//  				var bumpmap_Earth = THREE.ImageUtils.loadTexture( 'Images/earth_clouds.png');
+// 				var specularmap_Earth = THREE.ImageUtils.loadTexture( 'Images/earth_clouds.png');	
+				var dry_Earth = THREE.ImageUtils.loadTexture( "Images/earth_dry.jpg" );//for materialHabitable
+				var texture_cloud = THREE.ImageUtils.loadTexture( "Images/tex_cloud.png" );//for materialSH, materialHabitable
+				var texture_snow = THREE.ImageUtils.loadTexture( "Images/tex_snow.jpg" );//for materialHabitable
+				
+				//star type -> rings, size, texture, sprite color, sprite texture, planet distance
+				var texture_Star_Sprite, texture_sprite2_yellow, texture_sprite2_blue, texture_sprite2_red;//textures
+				texture_Star_Sprite = THREE.ImageUtils.loadTexture( 'Images/tex_sprite.png');
+				texture_sprite2_yellow = THREE.ImageUtils.loadTexture('Images/tex_sprite3.png');//yellow
+				texture_sprite2_blue = THREE.ImageUtils.loadTexture('Images/tex_sprite4.png');//blue
+				texture_sprite2_red = THREE.ImageUtils.loadTexture('Images/tex_sprite5.png');//red
+				//star texture images
+				var BlueStar = THREE.ImageUtils.loadTexture( 'Images/tex_lava5.jpg');
+// 				var CyanStar = THREE.ImageUtils.loadTexture( 'Images/tex_lava4.jpg');
+				var YellowStar = THREE.ImageUtils.loadTexture( 'Images/tex_lava.jpg');
+				var RedStar = THREE.ImageUtils.loadTexture( 'Images/tex_lava3.jpg');
+				var OrangeStar = THREE.ImageUtils.loadTexture( 'Images/tex_lava2.jpg');//for materialHabitable
+				var texture_star = YellowStar;//yellow
+
+				var trailTex = THREE.ImageUtils.loadTexture('Images/tex_smoke.png');//trail
+				
+				var TextureGrid = new THREE.ImageUtils.loadTexture( 'Images/tex_grid_thick_edge.png');///tex_grid.png	tex_grid_thin_edge.png	tex_grid_thick_edge.png
+				
+				//button images
+				var button_blue = "Images/Icons/icon_star_blue.png";
+				var button_yellow = "Images/Icons/icon_star_yellow.png";
+				var button_red = "Images/Icons/icon_star_red.png";
+			}			
+			{//materials
+				var starfield_material  = new THREE.MeshBasicMaterial( { map: texture_starfield,  side: THREE.BackSide });	
+			
+				//planet material (bumpmap, specularmap, normalmap etc.)
+// 				bumpmap_Earth.anisotropy = 4;
+// 				var material_Earth = new THREE.MeshPhongMaterial( { color: 0xffffff, map: texture_Earth, bumpMap: bumpmap_Earth, bumpScale: 0.1, specularMap: specularmap_Earth, specular: 0x404040, shininess: 1});
+					
+				//fluffy habitable zones (canvas gradient texture)
+				var texture_gradient = new THREE.Texture( generateTexture() );
+				texture_gradient.needsUpdate = true; // important!		
+				var material_gradient = new THREE.MeshBasicMaterial( { map: texture_gradient, transparent: true, side: THREE.DoubleSide, opacity:1.0 } );
+				
+				//test materials
+// 				var material = new THREE.MeshBasicMaterial( {wireframe:true,  color: 0x303030 } );
+				var material_red = new THREE.MeshBasicMaterial( {wireframe:true,  color: 0xffffff } );//0xcc0000
+// 				var material_green = new THREE.MeshBasicMaterial( {wireframe:false,  color: 0x339933 } );
+// 				var material_blue = new THREE.MeshBasicMaterial( {wireframe:false,  color: 0x3399ff } );
+
+				//non fluffy habitable zones
+				var material_red2 =  new THREE.MeshPhongMaterial( { color: 0xcc0000, ambient: 0xff1100, side: THREE.DoubleSide, transparent:true, opacity:0.5  } );
+				var material_green2 =  new THREE.MeshPhongMaterial( { color: 0xffffff, ambient: 0x00cc00, side: THREE.DoubleSide, transparent:true, opacity:0.5 } );
+				var material_blue2 =  new THREE.MeshPhongMaterial( { color: 0xcc0000, ambient: 0x3399ff, side: THREE.DoubleSide, transparent:true, opacity:0.5 } );//, blending: THREE.AdditiveAlpha
+			}			
+			{//parameters
+				//star jquery buttons size / positioning
+				var star_button_right = 25;
+				var star_button_bottom1 = 20;
+				var star_button_bottom2 = 180; 
+				var star_button_bottom3 = 310;
+				var star_button_WH1 = 150;//blue
+				var star_button_WH2 = 120;//yellow
+				var star_button_WH3 = 90;//red
+				//star buttons preset values (Blue, Yellow, Red)
+				//StarFunction(preset_blue_scale,0,preset_blue_star_texture,preset_blue_sprite_color,preset_blue_disk_position_1_inner,preset_blue_disk_position_2,preset_blue_disk_position_3,preset_blue_disk_position_4_outer,preset_blue_sprite_texture);
+				var preset_blue_scale = 1.5;//star and sprite size
+				//var preset_blue_disk_scale = 1.3;//not used
+				var preset_blue_star_texture = BlueStar;
+				var preset_blue_sprite_color = 0x3399cc;
+				var preset_blue_sprite_texture = texture_sprite2_blue;
+				var preset_blue_disk_position_1_inner = 2.0/1.42;
+				var preset_blue_disk_position_2 = 2.0;
+				var preset_blue_disk_position_3 = 3.5;
+				var preset_blue_disk_position_4_outer = 3.5*1.42;
+				//StarFunction(preset_yellow_scale,0,preset_yellow_star_texture,preset_yellow_sprite_color,preset_yellow_disk_position_1_inner,preset_yellow_disk_position_2,preset_yellow_disk_position_3,preset_yellow_disk_position_4_outer,preset_yellow_sprite_texture);
+				var preset_yellow_scale = 1.0;//star and sprite size
+				//var preset_yellow_disk_scale = 1.0;//not used
+				var preset_yellow_star_texture = YellowStar;
+				var preset_yellow_sprite_color = 0xE86C19;
+				var preset_yellow_sprite_texture = texture_sprite2_yellow;
+				var preset_yellow_disk_position_1_inner = 0.9/1.42;
+				var preset_yellow_disk_position_2 = 0.9;
+				var preset_yellow_disk_position_3 = 1.7;
+				var preset_yellow_disk_position_4_outer = 1.7 * 1.42;
+				//StarFunction(preset_red_scale,0,preset_red_star_texture,preset_red_sprite_color,preset_red_disk_position_1_inner,preset_red_disk_position_2,preset_red_disk_position_3,preset_red_disk_position_4_outer,preset_red_sprite_texture);
+				var preset_red_scale = 0.6;//star and sprite size
+				//var preset_red_disk_scale = 0.65;//not used
+				var preset_red_star_texture = RedStar;
+				var preset_red_sprite_color = 0xcc0033;
+				var preset_red_sprite_texture = texture_sprite2_red;
+				var preset_red_disk_position_1_inner = 0.45;
+				var preset_red_disk_position_2 = 0.55;
+				var preset_red_disk_position_3 = 0.89;
+				var preset_red_disk_position_4_outer = 0.89*1.42;
+				
+				
+				var x;
+				var renderer;
+				var scene, scene2;
+				
+				var customWidth = getWindowDimensions().width;
+				var customHeight = getWindowDimensions().height;
+				console.log(customWidth, customHeight);
+
+				//drag and drop parameters
+				//var plane;//raycasting plane (don't need it)
+				var planar = false;//plane to drag on
+				var selectedObject = false;
+				var offset = new THREE.Vector3();
+				var objects = [];//objects to be dragged
+				
+				
+				var camera = false;
+				var view, norm, tempx, tempz;//handling the view
+				var cameraTarget = new THREE.Vector3();
+				
+				var space_size = 1720;//1520//920//1920
+				
+				//star, planet
+				var geometry_center, geometry_satellite;
+				var center, satellite;//i.e. star, planet
+				var init_position_x = 289;//used in InitNBody()
+				var init_position_z = 0;//0.789555;
+				var size_Star = 50;//star size (and sprite size) 
+				var init_size_Star = size_Star;
+				var size_Planet = 26;//should be less than the stars - otherwise it never resets + shader becomes "blue" (adjust in fragmentShaderHabitable)
+				var USE_PLANET_SPHERE = true;
+				var invisible_planet_sphere;//surrounding sphere
+				var size_invisible_Planet_sphere = 6;//2;
+				//arrow
+				var geometry_arrow, planet_arrow, egh;//tip
+				//var init_arrow_length = 50.;//not used
+				var init_arrow_position_x = 0;//289;
+				var init_arrow_position_z = 0;//100;//79.74505500000001;
+				var geometryline, line;//line
+				var USE_ARROW_SPHERE = true;
+				var invisible_arrow_sphere;//surrounding sphere
+				var mom_scale = 30.;//momentum scale
+				var scaleM = 1./mom_scale; //scale for setting the momentum //0.03333;// 1/30=0.03333   (30 was the mom_scale)
+				//habitable zones
+				var FLUFFY = true;
+				var disc_geometry, disc_geometry2, disc_geometry3;
+				var disc_red, disc_green, disc_blue;	
+				var position_Planet_x = 200;//225
+				var ring_one = position_Planet_x * 0.9/1.42;//0.5 0.6
+				var ring_two = position_Planet_x * 0.9;//0.95 0.9
+				var ring_three=position_Planet_x * 1.7;//1.7
+				var ring_end = position_Planet_x * 1.7 * 1.42;//2.0
+				var GRID_ON = true;
+				var grid_repeat = 28;//(12) bigger number = denser grid (and more subtle)
+				//trail particles
+				var particleGroup, emitter2;
+				//star sprites
+				var sprite, sprite2, sprite3, sprite4, sprite5;
+				var sprite5scale = 0.0;
+				//labels
+				var labelPlanet, labelArrow; 
+				var LABLES_ON = false;
+				//adding shading
+				var materialSH, uniforms;
+				var materialHabitable, uniforms2;
+				
+				var clock = new THREE.Clock();
+				var mouse = new THREE.Vector3( 0, 0, 1 );//needs to initiate
+				var touch = new THREE.Vector3( 0, 0, 1 );//needs to initiate
+				var focus_planet = false;
+				var focus_arrow = false;
+				//this is only the initialization, so it can be zeros ('hold' added for touchstart i.e. raydown), just careful with init_position_x which is now used in InitNBody()
+				var temp_planet_position = new THREE.Vector3(0,0,0);
+				var hold_planet_position = new THREE.Vector3(init_position_x,0,init_position_z);//new THREE.Vector3(0,0,0);
+				var temp_arrow_position = new THREE.Vector3(0,0,0);
+				var hold_arrow_position = new THREE.Vector3(init_arrow_position_x,0,init_arrow_position_z);//new THREE.Vector3(0,0,0);
+			}
+			{//shader materials (using ring_one, ring_two, ring_three, ring_end, size_Star, size_Planet from parameters)
+				uniforms = {
+					time: { type: "f", value: 1.0 },
+					texture1: { type: "t", value: texture_cloud },
+					texture2: { type: "t", value: texture_star}
+				};
+				uniforms.texture1.value.wrapS = uniforms.texture1.value.wrapT = THREE.RepeatWrapping;
+				uniforms.texture2.value.wrapS = uniforms.texture2.value.wrapT = THREE.RepeatWrapping;	
+				materialSH = new THREE.ShaderMaterial( {//for stars
+					uniforms: uniforms, 
+ 					vertexShader: document.getElementById( 'vertexShaderStar' ).textContent,
+ 					fragmentShader: document.getElementById( 'fragmentShaderStar' ).textContent
+				} );
+				
+				uniforms2 = {
+					time: { type: "f", value: 1.0 },
+					texture1: { type: "t", value: texture_cloud },
+					texture2: { type: "t", value: OrangeStar }, 					
+					texture3: { type: "t", value: dry_Earth },
+					texture4: { type: "t", value: texture_Earth },
+					texture5: { type: "t", value: texture_snow },//s1, s3, s4, s6
+					distanceToStar: { type: 'f', value: 0 }, 
+ 					sh_ring_one: { type: 'f', value: ring_one },// = 100;
+ 					sh_ring_two: { type: 'f', value: ring_two },// = 200;
+ 					sh_ring_three: { type: 'f', value: ring_three },// = 300;
+ 					sh_ring_end: { type: 'f', value: ring_end },// = 380;
+ 					sh_size_Star: { type: 'f', value: size_Star },// = 50;
+ 					sh_size_Planet: { type: 'f', value: size_Planet }// = 20;
+				};
+				uniforms2.texture1.value.wrapS = uniforms2.texture1.value.wrapT = THREE.RepeatWrapping;
+				uniforms2.texture2.value.wrapS = uniforms2.texture2.value.wrapT = THREE.RepeatWrapping;	
+				materialHabitable = new THREE.ShaderMaterial( {//for planet
+					uniforms: uniforms2, 
+// 					wireframe: true,
+ 					vertexShader: document.getElementById( 'vertexShaderHabitable' ).textContent,
+ 					fragmentShader: document.getElementById( 'fragmentShaderHabitable' ).textContent,
+//  					side: THREE.DoubleSide, 
+// 					blending: THREE.AdditiveAlpha, //THREE.NormalBlending;
+ 					transparent: true, 
+//  					lights: true
+				} );
+// 				materialHabitable.blending = THREE.MultiplyBlending;
+			}//shader stuff	
+			
+			window.onload = function () { 
+				x = InitThreeRenderer(customWidth, customHeight, container);
+				x = InitThreeScene();
+				x = InitThreeLights();
+				x = InitCameras();
+				x = InitEnviromentSphere();
+				
+				x = InitObjects();
+				DragAndDrop();
+				
+				AddListeners();
+				animate();
+			}// window.onload
+		</script> 
+		
+		<script>//jquery star buttons
+			$(function(){
+				{//star buttons
+				$("#starButtonBlue")
+				.text("") // sets text to empty
+				.css(
+					{ "z-index":"2",
+					"background":"rgba(0,0,0,0)", "opacity":"0.9", 
+					"position":"absolute", "bottom":star_button_bottom1+"px", "right":star_button_right+"px"
+					}) // adds CSS
+				.append("<img width='"+star_button_WH1+"' height='"+star_button_WH1+"' src="+button_blue+" />")
+				.button()
+				.bind("click touchstart",//.click(//BlueStarFunction);
+					function(){ //BlueStar;
+// 						StarFunction(1.5,1.3,BlueStar,0x3399cc, 2.0/1.42, 2.0, 3.5, 3.5*1.42, texture_sprite2_blue);
+						StarFunction(preset_blue_scale,0,preset_blue_star_texture,preset_blue_sprite_color,preset_blue_disk_position_1_inner,preset_blue_disk_position_2,preset_blue_disk_position_3,preset_blue_disk_position_4_outer,preset_blue_sprite_texture);
+					}
+				);		
+					
+				$("#starButtonYellow")
+				.text("") // sets text to empty
+				.css(
+					{ "z-index":"2",
+					"background":"rgba(0,0,0,0)", "opacity":"0.9", 
+					"position":"absolute", "bottom":star_button_bottom2+"px", "right":star_button_right+"px"
+					}) // adds CSS
+				.append("<img width='"+star_button_WH2+"' height='"+star_button_WH2+"' src="+button_yellow+" />")
+				.button()
+				.bind("click touchstart",//.click(//YellowStarFunction);
+					function(){ 
+// 						StarFunction(1.0,1.0,YellowStar,0xE86C19, 0.9/1.42, 0.9, 1.7, 1.7 * 1.42, texture_sprite2_yellow);
+						StarFunction(preset_yellow_scale,0,preset_yellow_star_texture,preset_yellow_sprite_color,preset_yellow_disk_position_1_inner,preset_yellow_disk_position_2,preset_yellow_disk_position_3,preset_yellow_disk_position_4_outer,preset_yellow_sprite_texture);
+					}
+				);		
+
+				$("#starButtonRed")
+				.text("") // sets text to empty
+				.css(
+					{ "z-index":"2",
+					"background":"rgba(0,0,0,0)", "opacity":"0.9", 
+					"position":"absolute", "bottom":star_button_bottom3+"px", "right":star_button_right+"px"
+					}) // adds CSS
+				.append("<img width='"+star_button_WH3+"' height='"+star_button_WH3+"' src="+button_red+" />")
+				.button()
+				.bind("click touchstart",//.click(//RedStarFunction);
+					function(){ 
+// 						StarFunction(0.6,0.65,RedStar,0xcc0033, 0.45, 0.55, 0.89, 0.89*1.42, texture_sprite2_red);
+						StarFunction(preset_red_scale,0,preset_red_star_texture,preset_red_sprite_color,preset_red_disk_position_1_inner,preset_red_disk_position_2,preset_red_disk_position_3,preset_red_disk_position_4_outer,preset_red_sprite_texture);
+					}
+				);		
+				}//buttons
+			});
+		</script>
+		
+		<script>//standard buttons (don't forget:
+			//* the images (4x icons, 2x help/info screens), 
+			//* css elements (.helper, #dialogHelp), 
+			//* adjust with the other URL parameters (in #languageButton),
+			//* need customHeight, customWidth (customWidth = getWindowDimensions().width;) ; (also uses controls - can be commented out if not there)
+			//)
+			function getUrlVars() {
+				var vars = {};
+				var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi,    
+					function(m,key,value) {
+						vars[key] = value;
+					}
+				);
+				return vars;
+			}			
+			function AddDialog(elementName, content){
+				$(elementName).empty();
+				
+				//vertical alignment of the image within a div
+				var content2 = "<span class='helper'></span>";
+				$(content2).appendTo(elementName);
+				
+				$(content).appendTo(elementName);
+				$(elementName).dialog("open");
+			}			
+			
+			{///parameters (using customHeight, customWidth)
+				//button positioning
+				var standard1_left = 20;
+				var standard2_left = 120;//1554;
+				var standard3_left = 220;
+				var standard_bottom = 20;
+			
+				//dialog paramaeters
+				var dialog_height = customHeight;
+				var dialog_width = customWidth-4;
+				var dialog_left = 0;
+				var dialog_up = 0;
+			}
+			{//load images
+				var button_reset = "Images/Icons/icon_blue_reload.png";
+				var button_info = "Images/Icons/icon_blue_help.png";
+				var button_language = "Images/Icons/icon_blue_DE.svg";	
+				var lang = "en";
+				
+				//language button image //change icon image (offer opposite image)
+				if(getUrlVars()["lang"] == "en") button_language = "Images/Icons/icon_blue_DE.svg";
+				if(getUrlVars()["lang"] == "de") button_language = "Images/Icons/icon_blue_EN.svg";
+				
+				//help screen images
+				var info_imageEN ='Images/0506_habitable_zone_help_screens_ES_interactives_EN.png';
+				var info_imageDE ='Images/0506_habitable_zone_help_screens_ES_interactives_DE.png';
+				var info_image_width = 1500;
+			}
+
+			$(function(){
+				console.log("ready");
+				document.body.style.visibility = "visible";			
+			
+				{//reset button
+				$("#resetButton")
+				.text("") // sets text to empty
+				.css(
+					{ "z-index":"2",
+					"background":"rgba(0,0,0,0)", "opacity":"0.9", 
+					"position":"absolute", "bottom":standard_bottom+"px", "left":standard1_left+"px"
+					}) // adds CSS
+				.append("<img width='80' height='80' src="+button_reset+" />")
+				.button()
+				.bind("click touchstart",//.click( 
+					function(){ 
+						window.location.reload(true);
+					});
+				}
+				
+				{//language change button (adjust to other URL parameters!)
+				$("#languageButton")
+				.text("") // sets text to empty
+				.css(
+					{ "z-index":"2",
+					"background":"rgba(0,0,0,0)", "opacity":"0.9", 
+					"position":"absolute", "bottom":standard_bottom+"px", "left":standard2_left+"px"
+					}) // adds CSS
+				.append("<img width='80' height='80' src="+button_language+" />")
+				.button()
+				.bind("click touchstart",
+					function(){ 
+						//reload with different url parameter
+						if(getUrlVars()["lang"] == "en") lang="de";
+						if(getUrlVars()["lang"] == "de") lang="en";
+						if(!getUrlVars()["lang"]) lang="de";//had default values (en as default)
+						
+						window.location.href = window.location.pathname+"?lang="+lang;
+					});
+				}
+				
+				{//info/help dialog - needs CSS setup and dialog parameters
+				$("#dialogHelp").dialog({
+					autoOpen: false,
+					modal: false,
+					dialogClass: "dlg-no-title",
+					resizable: false,
+					height: dialog_height,
+					width: dialog_width,
+ 					position: [dialog_left,dialog_up],//left, top
+					clickOutside: true, // clicking outside the dialog will close it
+					clickOutsideTrigger: "#infoButton"  // Element (id or class) that triggers the dialog opening 
+				})
+				.mouseenter(function(){
+					controls.noRotate = true;
+				})
+				.mouseleave(function(){
+					controls.noRotate = false;
+				})
+				.bind("click touchstart",
+					function(){ 
+						$("#dialogHelp").dialog("close");//close dialog
+					});	
+				}				
+				
+				{//info/help button - needs #dialogHelp and AddDialog() function
+				$("#infoButton")
+				.text("") // sets text to empty
+				.css(
+					{ "z-index":"2",
+					"background":"rgba(0,0,0,0)", "opacity":"0.9", 
+					"position":"absolute", "bottom":standard_bottom+"px", "left":standard3_left+"px"
+					}) // adds CSS
+				.append("<img width='80' height='80' src="+button_info+" />")
+				.button()
+				.bind("click",
+					function(){ 
+						if(getUrlVars()["lang"] == "en") AddDialog("#dialogHelp", "<img src="+info_imageEN+" width="+info_image_width+" style='vertical-align:middle;'></img>");
+						if(getUrlVars()["lang"] == "de") AddDialog("#dialogHelp", "<img src="+info_imageDE+" width="+info_image_width+" style='vertical-align:middle;'></img>");
+						if(!getUrlVars()["lang"]) AddDialog("#dialogHelp", "<img src="+info_imageEN+" width="+info_image_width+" style='vertical-align:middle;'></img>");//had default values (en as default)						
+					});
+				}
+			});
+		</script>
+	</body>
+</html>
